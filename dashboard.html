@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<h2>Dashboard</h2>
+
+<div id="stats"></div>
+
+<script>
+const API = "YOUR_WEB_APP_URL";
+
+async function load() {
+  let res = await fetch(API + "?dashboard=1");
+  let data = await res.json();
+
+  document.getElementById("stats").innerHTML = `
+    Total: ${data.total}<br>
+    Checked: ${data.checked}<br>
+    Pending: ${data.pending}
+  `;
+}
+
+setInterval(load, 3000);
+load();
+</script>
+
+</body>
+</html>
