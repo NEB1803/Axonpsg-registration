@@ -14,29 +14,22 @@ body {
   color: #fff;
 }
 
-/* HEADER */
 .header {
   background: #fff;
   padding: 14px;
   text-align: center;
 }
 
-.logo {
-  height: 50px;
-}
+.logo { height: 50px; }
 
-/* TITLE */
 .title {
   text-align: center;
   font-size: 22px;
   font-weight: bold;
-  margin: 15px 10px;
+  margin: 15px;
 }
 
-/* INPUT AREA */
-.search-container {
-  padding: 0 12px;
-}
+.search-container { padding: 0 12px; }
 
 input {
   width: 100%;
@@ -59,44 +52,24 @@ button {
   font-weight: bold;
 }
 
-.scan-btn {
-  background: #22c55e;
-  color: white;
-}
+.scan-btn { background: #22c55e; color: white; }
 
-/* QR SCANNER */
-#reader {
-  margin: 10px;
-}
+#reader { margin: 10px; }
+#result { padding: 12px; }
 
-/* RESULT */
-#result {
-  padding: 12px;
-}
-
-/* CARDS */
 .card {
   background: #111;
   padding: 18px;
   border-radius: 16px;
   margin-top: 10px;
-  text-align: center;
 }
 
 .valid { border: 2px solid #22c55e; }
 .invalid { border: 2px solid #ef4444; }
 .warning { border: 2px solid #f59e0b; }
 
-.status-title {
-  font-size: 22px;
-  font-weight: bold;
-  margin-bottom: 10px;
-}
-
-.name {
-  font-size: 20px;
-  font-weight: bold;
-}
+.field { margin: 6px 0; font-size: 15px; }
+.name { font-size: 20px; font-weight: bold; }
 
 /* LOADING */
 #loading {
@@ -132,7 +105,9 @@ button {
 
 <div class="search-container">
 
-  <button class="scan-btn" onclick="startScanner()">&#x1F4F7; Scan QR</button>
+  <button class="scan-btn" onclick="startScanner()">
+    &#x1F4F7; Scan QR
+  </button>
 
   <div id="reader"></div>
 
@@ -142,121 +117,169 @@ button {
 
 </div>
 
-<!-- LOADING -->
 <div id="loading">
   <div class="spinner"></div>
   <div>Checking...</div>
 </div>
 
-<!-- RESULT -->
 <div id="result"></div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbyhHdXJYpMb9seu5jyuPjPNX-7NiE4hZShDY7NUTauKGzuWFwZq7s8G5KaYxUekyr1I/exec";
+const API = "https://script.google.com/macros/s/AKfycbx8ISOpXIBmpkrxuz-WM3Mte8WKO6A7JoG0HavBRWP9tcqKH5MkoeYsr33H6mB-veOEOw/exec";
 
+/* SOUND */
 function playSuccess() {
   new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg").play();
 }
-
 function playError() {
   new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
 }
-
 function playWarning() {
   new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg").play();
 }
 
+/* EXTRACT ID */
 function extractId(text) {
-  if (text.includes("wixevents")) {
-    return text.split("/check-in/")[1].split(",")[0];
+  try {
+    text = text.trim();
+    const match = text.match(/check-in\/([^,]+)/);
+    if (match && match[1]) return match[1];
+    return text;
+  } catch {
+    return text;
   }
-  return text.trim();
 }
 
-/* ⏳ FETCH DATA */
+const workshopColors = {
+  "Suturing": "#ef4444",
+  "Emergency": "#3b82f6",
+  "Radiology": "#22c55e",
+  "Quiz": "#eab308",
+  "Default": "#6b7280"
+};
+
+function getColor(w) {
+  for (let key in workshopColors) {
+    if (w.toLowerCase().includes(key.toLowerCase())) {
+      return workshopColors[key];
+    }
+  }
+  return workshopColors["Default"];
+}
+
+function formatWorkshops(workshops) {
+  if (!workshops) return "";
+
+  let html = "<div style='margin-top:10px'>";
+  
+  workshops.split(",").forEach(w => {
+    html += `
+      <span style="
+        display:inline-block;
+        padding:6px 12px;
+        margin:4px;
+        border-radius:20px;
+        background:${getColor(w)};
+        color:white;
+        font-size:14px;
+      ">
+        ${w.trim()}
+      </span>
+    `;
+  });
+
+  html += "</div>";
+  return html;
+}
+
+/* FETCH */
 async function fetchData(id) {
   try {
     document.getElementById("loading").style.display = "block";
     document.getElementById("result").innerHTML = "";
 
     let res = await fetch(API + "?id=" + id);
-
-    if (!res.ok) throw new Error("Server error");
+    if (!res.ok) throw new Error();
 
     let data = await res.json();
 
     document.getElementById("loading").style.display = "none";
-
     showResult(data);
 
-  } catch (err) {
+  } catch {
     document.getElementById("loading").style.display = "none";
-    alert("❌ Unable to connect to server");
+    alert("Server error / Check internet");
   }
 }
 
-/* 📷 SCANNER */
+/* SCANNER */
 function startScanner() {
   const qr = new Html5Qrcode("reader");
 
-  qr.start(
-    { facingMode: "environment" },
-    { fps: 10 },
-    (text) => {
-      qr.stop();
-      fetchData(extractId(text));
-    }
-  );
+  qr.start({ facingMode: "environment" }, { fps: 10 }, (text) => {
+    qr.stop();
+    fetchData(extractId(text));
+  });
 }
 
-/* 🔍 SEARCH */
+/* SEARCH */
 function manualSearch() {
   let val = document.getElementById("manualId").value;
   if (!val) return;
-
   fetchData(extractId(val));
 }
 
-/* 🔄 RESET */
+/* RESET */
 function resetScreen() {
   document.getElementById("result").innerHTML = "";
 }
 
-/* 🎯 RESULT DISPLAY */
+/* RESULT */
 function showResult(res) {
   const div = document.getElementById("result");
 
   if (res.status === "NOT_FOUND") {
     playError();
-
     div.innerHTML = `
       <div class="card invalid">
-        <div class="status-title">\u274C NOT REGISTERED</div>
-        <button onclick="resetScreen()">\u{1F504} Next</button>
+        &#x274C; NOT REGISTERED
+        <button onclick="resetScreen()">Next</button>
       </div>`;
     return;
   }
 
+  const details = `
+    <div class="name">${res.firstName} ${res.lastName}</div>
+
+    <div class="field">&#x1F194; ${res.id}</div>
+    <div class="field">&#x1F4E7; ${res.email}</div>
+    <div class="field">&#x1F4DE; ${res.phone}</div>
+    <div class="field">&#x1F3EB; ${res.institution}</div>
+    <div class="field">&#x1F4CD; ${res.address}</div>
+    <div class="field">&#x1F393; ${res.year}</div>
+
+    <div class="field"><b>Workshops:</b></div>
+    ${formatWorkshops(res.workshops)}
+    `;
+
   if (res.status === "ALREADY") {
     playWarning();
-
     div.innerHTML = `
       <div class="card warning">
-        <div class="status-title">\u26A0\uFE0F ALREADY CHECKED-IN</div>
-        <div class="name">${res.name}</div>
-        <button onclick="resetScreen()">\u{1F504} Next</button>
+        &#x26A0;&#xFE0F; ALREADY CHECKED-IN
+        ${details}
+        <button onclick="resetScreen()">Next</button>
       </div>`;
     return;
   }
 
   if (res.status === "VALID") {
     playSuccess();
-
     div.innerHTML = `
       <div class="card valid">
-        <div class="status-title">\u2705 VALID ENTRY</div>
-        <div class="name">${res.name}</div>
-        <button onclick="resetScreen()">\u{1F504} Next</button>
+        &#x2705; VALID ENTRY
+        ${details}
+        <button onclick="resetScreen()">Next</button>
       </div>`;
   }
 }
