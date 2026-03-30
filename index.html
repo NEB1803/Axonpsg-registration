@@ -3,25 +3,223 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css">
 <title>Axon Check-In</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI';
+  background: #000;
+  color: #fff;
+}
+
+.header {
+  background: #fff;
+  padding: 14px;
+  text-align: center;
+}
+
+.logo {
+  height: 50px;
+}
+
+.title {
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+  margin: 15px 10px;
+}
+
+.search-container {
+  padding: 0 12px;
+}
+
+input {
+  width: 100%;
+  padding: 16px;
+  font-size: 18px;
+  border-radius: 12px;
+  border: none;
+  margin-bottom: 10px;
+}
+
+button {
+  width: 100%;
+  padding: 16px;
+  font-size: 18px;
+  border-radius: 12px;
+  border: none;
+  margin-bottom: 10px;
+  background: #fff;
+  color: #000;
+  font-weight: bold;
+}
+
+.scan-btn {
+  background: #22c55e;
+  color: white;
+}
+
+#reader {
+  margin: 10px;
+}
+
+#result {
+  padding: 12px;
+}
+
+.card {
+  background: #111;
+  padding: 18px;
+  border-radius: 16px;
+  margin-top: 10px;
+}
+
+.valid { border: 2px solid #22c55e; }
+.invalid { border: 2px solid #ef4444; }
+.warning { border: 2px solid #f59e0b; }
+
+.status-title {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.name {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.field {
+  font-size: 16px;
+  margin: 6px 0;
+}
+
+.tag {
+  display: inline-block;
+  padding: 8px 14px;
+  margin: 5px;
+  border-radius: 20px;
+  font-size: 14px;
+  color: #fff;
+  background: #3b82f6;
+}
+</style>
 </head>
 
 <body>
 
-<h2>Axon Check-In</h2>
+<div class="header">
+  <img src="https://static.wixstatic.com/media/3766d4_4962ad5501214d35bf25ee6fd86a4da2~mv2.png" class="logo">
+</div>
 
-<button onclick="startScanner()">Scan QR</button>
-<div id="reader"></div>
+<div class="title">Axon PSG 2026 Check-In</div>
 
-<input id="manualId" placeholder="Paste QR or ID">
-<button onclick="manualSearch()">Search</button>
+<div class="search-container">
+  <button class="scan-btn" onclick="startScanner()">📷 Scan QR</button>
+  <div id="reader"></div>
+
+  <input id="manualId" placeholder="Paste QR link or ID">
+  <button onclick="manualSearch()">Search Delegate</button>
+</div>
 
 <div id="result"></div>
 
-<script src="app.js"></script>
+<script>
+const API = "YOUR_WEB_APP_URL";
+
+/* PWA */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+
+/* EXTRACT ID */
+function extractId(text) {
+  if (text.includes("wixevents")) {
+    return text.split("/check-in/")[1].split(",")[0];
+  }
+  return text;
+}
+
+/* OFFLINE QUEUE */
+function saveOffline(id) {
+  let q = JSON.parse(localStorage.getItem("queue") || "[]");
+  q.push(id);
+  localStorage.setItem("queue", JSON.stringify(q));
+}
+
+async function syncQueue() {
+  let q = JSON.parse(localStorage.getItem("queue") || "[]");
+
+  for (let id of q) {
+    await fetch(API + "?id=" + id);
+  }
+
+  localStorage.setItem("queue", "[]");
+}
+
+window.addEventListener("online", syncQueue);
+
+/* FETCH */
+async function fetchData(id) {
+  try {
+    let res = await fetch(API + "?id=" + id);
+    let data = await res.json();
+    showResult(data);
+  } catch {
+    saveOffline(id);
+    alert("Saved offline");
+  }
+}
+
+/* SCANNER */
+function startScanner() {
+  const qr = new Html5Qrcode("reader");
+
+  qr.start({ facingMode: "environment" }, { fps: 10 }, (text) => {
+    qr.stop();
+    fetchData(extractId(text));
+  });
+}
+
+/* SEARCH */
+function manualSearch() {
+  let val = document.getElementById("manualId").value;
+  fetchData(extractId(val));
+}
+
+/* RESET */
+function resetScreen() {
+  document.getElementById("result").innerHTML = "";
+}
+
+/* RESULT */
+function showResult(res) {
+  const div = document.getElementById("result");
+
+  if (res.status === "NOT_FOUND") {
+    div.innerHTML = `<div class="card invalid">❌ NOT REGISTERED<br><button onclick="resetScreen()">Next</button></div>`;
+    return;
+  }
+
+  if (res.status === "ALREADY") {
+    div.innerHTML = `<div class="card warning">
+    ⚠️ ALREADY CHECKED-IN<br>${res.name}
+    <br><button onclick="resetScreen()">Next</button>
+    </div>`;
+    return;
+  }
+
+  if (res.status === "VALID") {
+    div.innerHTML = `<div class="card valid">
+    ✅ VALID ENTRY<br>${res.name}
+    <br><button onclick="resetScreen()">Next</button>
+    </div>`;
+  }
+}
+</script>
 
 </body>
 </html>
