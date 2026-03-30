@@ -120,7 +120,7 @@ button {
   <input id="search" placeholder="Search name or ID" oninput="searchData()">
 </div>
 
-<button onclick="loadData()">🔄 Refresh</button>
+<button onclick="loadData()">&#x1F504; Refresh</button>
 
 <div id="list"></div>
 
@@ -179,8 +179,27 @@ function searchData() {
 }
 
 /* LOAD */
-loadData();
-setInterval(loadData, 5000);
+async function loadData() {
+  try {
+    let res = await fetch(API + "?dashboard=1");
+
+    if (!res.ok) throw new Error("Server error");
+
+    let data = await res.json();
+
+    globalList = data.list || [];
+
+    document.getElementById("total").innerText = data.total;
+    document.getElementById("checked").innerText = data.checked;
+    document.getElementById("pending").innerText = data.pending;
+
+    render(globalList);
+
+  } catch (err) {
+    console.log(err);
+    alert("❌ Dashboard failed to load");
+  }
+}
 </script>
 
 </body>

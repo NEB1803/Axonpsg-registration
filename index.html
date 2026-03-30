@@ -2,7 +2,6 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="manifest" href="manifest.json">
 <title>Axon Check-In</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
@@ -15,6 +14,7 @@ body {
   color: #fff;
 }
 
+/* HEADER */
 .header {
   background: #fff;
   padding: 14px;
@@ -25,6 +25,7 @@ body {
   height: 50px;
 }
 
+/* TITLE */
 .title {
   text-align: center;
   font-size: 22px;
@@ -32,6 +33,7 @@ body {
   margin: 15px 10px;
 }
 
+/* INPUT AREA */
 .search-container {
   padding: 0 12px;
 }
@@ -62,19 +64,23 @@ button {
   color: white;
 }
 
+/* QR SCANNER */
 #reader {
   margin: 10px;
 }
 
+/* RESULT */
 #result {
   padding: 12px;
 }
 
+/* CARDS */
 .card {
   background: #111;
   padding: 18px;
   border-radius: 16px;
   margin-top: 10px;
+  text-align: center;
 }
 
 .valid { border: 2px solid #22c55e; }
@@ -88,23 +94,30 @@ button {
 }
 
 .name {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: bold;
 }
 
-.field {
-  font-size: 16px;
-  margin: 6px 0;
+/* LOADING */
+#loading {
+  display: none;
+  text-align: center;
+  margin-top: 20px;
 }
 
-.tag {
-  display: inline-block;
-  padding: 8px 14px;
-  margin: 5px;
-  border-radius: 20px;
-  font-size: 14px;
-  color: #fff;
-  background: #3b82f6;
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #333;
+  border-top: 4px solid #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>
 </head>
@@ -118,105 +131,133 @@ button {
 <div class="title">Axon PSG 2026 Check-In</div>
 
 <div class="search-container">
-  <button class="scan-btn" onclick="startScanner()">Scan QR</button>
+
+  <button class="scan-btn" onclick="startScanner()">&#x1F4F7; Scan QR</button>
+
   <div id="reader"></div>
 
-  <input id="manualId" placeholder="Paste QR link or ID">
+  <input id="manualId" placeholder="Paste QR link or enter Delegate ID">
+
   <button onclick="manualSearch()">Search Delegate</button>
+
 </div>
 
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div>Checking...</div>
+</div>
+
+<!-- RESULT -->
 <div id="result"></div>
 
 <script>
-const API = "YOUR_WEB_APP_URL";
+const API = "https://script.google.com/macros/s/AKfycbyhHdXJYpMb9seu5jyuPjPNX-7NiE4hZShDY7NUTauKGzuWFwZq7s8G5KaYxUekyr1I/exec";
 
-/* PWA */
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
+function playSuccess() {
+  new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg").play();
 }
 
-/* EXTRACT ID */
+function playError() {
+  new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg").play();
+}
+
+function playWarning() {
+  new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg").play();
+}
+
 function extractId(text) {
   if (text.includes("wixevents")) {
     return text.split("/check-in/")[1].split(",")[0];
   }
-  return text;
+  return text.trim();
 }
 
-/* OFFLINE QUEUE */
-function saveOffline(id) {
-  let q = JSON.parse(localStorage.getItem("queue") || "[]");
-  q.push(id);
-  localStorage.setItem("queue", JSON.stringify(q));
-}
-
-async function syncQueue() {
-  let q = JSON.parse(localStorage.getItem("queue") || "[]");
-
-  for (let id of q) {
-    await fetch(API + "?id=" + id);
-  }
-
-  localStorage.setItem("queue", "[]");
-}
-
-window.addEventListener("online", syncQueue);
-
-/* FETCH */
+/* ⏳ FETCH DATA */
 async function fetchData(id) {
   try {
+    document.getElementById("loading").style.display = "block";
+    document.getElementById("result").innerHTML = "";
+
     let res = await fetch(API + "?id=" + id);
+
+    if (!res.ok) throw new Error("Server error");
+
     let data = await res.json();
+
+    document.getElementById("loading").style.display = "none";
+
     showResult(data);
-  } catch {
-    saveOffline(id);
-    alert("Saved offline");
+
+  } catch (err) {
+    document.getElementById("loading").style.display = "none";
+    alert("❌ Unable to connect to server");
   }
 }
 
-/* SCANNER */
+/* 📷 SCANNER */
 function startScanner() {
   const qr = new Html5Qrcode("reader");
 
-  qr.start({ facingMode: "environment" }, { fps: 10 }, (text) => {
-    qr.stop();
-    fetchData(extractId(text));
-  });
+  qr.start(
+    { facingMode: "environment" },
+    { fps: 10 },
+    (text) => {
+      qr.stop();
+      fetchData(extractId(text));
+    }
+  );
 }
 
-/* SEARCH */
+/* 🔍 SEARCH */
 function manualSearch() {
   let val = document.getElementById("manualId").value;
+  if (!val) return;
+
   fetchData(extractId(val));
 }
 
-/* RESET */
+/* 🔄 RESET */
 function resetScreen() {
   document.getElementById("result").innerHTML = "";
 }
 
-/* RESULT */
+/* 🎯 RESULT DISPLAY */
 function showResult(res) {
   const div = document.getElementById("result");
 
   if (res.status === "NOT_FOUND") {
-    div.innerHTML = `<div class="card invalid">❌ NOT REGISTERED<br><button onclick="resetScreen()">Next</button></div>`;
+    playError();
+
+    div.innerHTML = `
+      <div class="card invalid">
+        <div class="status-title">\u274C NOT REGISTERED</div>
+        <button onclick="resetScreen()">\u{1F504} Next</button>
+      </div>`;
     return;
   }
 
   if (res.status === "ALREADY") {
-    div.innerHTML = `<div class="card warning">
-    ⚠️ ALREADY CHECKED-IN<br>${res.name}
-    <br><button onclick="resetScreen()">Next</button>
-    </div>`;
+    playWarning();
+
+    div.innerHTML = `
+      <div class="card warning">
+        <div class="status-title">\u26A0\uFE0F ALREADY CHECKED-IN</div>
+        <div class="name">${res.name}</div>
+        <button onclick="resetScreen()">\u{1F504} Next</button>
+      </div>`;
     return;
   }
 
   if (res.status === "VALID") {
-    div.innerHTML = `<div class="card valid">
-    ✅ VALID ENTRY<br>${res.name}
-    <br><button onclick="resetScreen()">Next</button>
-    </div>`;
+    playSuccess();
+
+    div.innerHTML = `
+      <div class="card valid">
+        <div class="status-title">\u2705 VALID ENTRY</div>
+        <div class="name">${res.name}</div>
+        <button onclick="resetScreen()">\u{1F504} Next</button>
+      </div>`;
   }
 }
 </script>
