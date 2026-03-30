@@ -1,4 +1,4 @@
-const API = "https://script.google.com/macros/s/AKfycbzXGym_8DDR8J2XwK6F97VVct0vZGstpFLrsknuKf6v/dev";
+const API = "https://script.google.com/macros/s/AKfycbyhHdXJYpMb9seu5jyuPjPNX-7NiE4hZShDY7NUTauKGzuWFwZq7s8G5KaYxUekyr1I/exec";
 
 /* PWA REGISTER */
 if ("serviceWorker" in navigator) {
