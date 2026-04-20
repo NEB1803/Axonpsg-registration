@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html class="dark">
+<head>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+
+<body class="bg-black text-white p-4">
+
+<script>
+if(!localStorage.getItem("auth")) location="/";
+</script>
+
+<h1 class="text-green-400 text-xl mb-4">Check-In</h1>
+
+<button onclick="scan()" class="bg-green-500 p-3 w-full rounded mb-3">
+Scan QR
+</button>
+
+<div id="reader"></div>
+
+<input id="id" class="w-full p-2 text-black mt-2" placeholder="Paste QR or ID">
+
+<button onclick="manual()" class="bg-white text-black w-full p-2 mt-2 rounded">
+Search
+</button>
+
+<div id="res" class="mt-4"></div>
+
+<script>
+function extract(t){
+  if(t.includes("wixevents")){
+    return t.split("/check-in/")[1].split(",")[0];
+  }
+  return t;
+}
+
+async function call(id){
+  let r=await fetch(`/api/checkin?id=${id}`);
+  let d=await r.json();
+
+  res.innerHTML=`
+  <div class="border p-3 rounded">
+  <h2>${d.status}</h2>
+  <p>${d.name||""}</p>
+  </div>`;
+}
+
+function manual(){ call(extract(id.value)); }
+
+function scan(){
+  const qr=new Html5Qrcode("reader");
+  qr.start({facingMode:"environment"},{fps:10},txt=>{
+    qr.stop();
+    call(extract(txt));
+  });
+}
+</script>
+
+</body>
+</html>
