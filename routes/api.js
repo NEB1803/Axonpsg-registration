@@ -11,41 +11,47 @@ router.get("/login",(req,res)=>{
   res.json({status:"FAIL"});
 });
 
-/* CHECKIN */
-router.get("/checkin",async(req,res)=>{
-  const user=await Delegate.findOne({delegateId:req.query.id});
+/* CHECK-IN (SAFE VERSION) */
+router.get("/checkin", async (req,res)=>{
 
-  if(!user) return res.json({status:"NOT_FOUND"});
+  const id = req.query.id;
 
-  if(user.checked){
+  const user = await Delegate.findOneAndUpdate(
+    { delegateId: id, checked: false },
+    { checked: true, timestamp: new Date() },
+    { new: true }
+  );
+
+  if (user) {
     return res.json({
-      status:"ALREADY",
+      status:"VALID",
       name:user.firstName+" "+user.lastName,
       workshops:user.workshops
     });
   }
 
-  user.checked=true;
-  user.timestamp=new Date();
-  await user.save();
+  const already = await Delegate.findOne({ delegateId: id });
 
-  res.json({
-    status:"VALID",
-    name:user.firstName+" "+user.lastName,
-    workshops:user.workshops
+  if (!already) return res.json({ status:"NOT_FOUND" });
+
+  return res.json({
+    status:"ALREADY",
+    name:already.firstName+" "+already.lastName,
+    workshops:already.workshops
   });
 });
 
 /* DASHBOARD */
-router.get("/dashboard",async(req,res)=>{
-  const total=await Delegate.countDocuments();
-  const checked=await Delegate.countDocuments({checked:true});
+router.get("/dashboard", async (req,res)=>{
+
+  const total = await Delegate.countDocuments();
+  const checked = await Delegate.countDocuments({checked:true});
 
   res.json({
     total,
     checked,
-    pending:total-checked
+    pending: total - checked
   });
 });
 
-module.exports=router;
+module.exports = router;

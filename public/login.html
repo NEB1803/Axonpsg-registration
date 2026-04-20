@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html class="dark">
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
@@ -12,20 +13,18 @@
 <input id="u" class="w-full p-2 mb-2 text-black" placeholder="Username">
 <input id="p" type="password" class="w-full p-2 mb-4 text-black" placeholder="Password">
 
-<button onclick="login()" class="w-full bg-green-500 p-2 rounded">
-Login
-</button>
+<button onclick="login()" class="w-full bg-green-500 p-2 rounded">Login</button>
 </div>
 
 <script>
 async function login(){
-  let res=await fetch(`/api/login?username=${u.value}&password=${p.value}`);
-  let data=await res.json();
+  let res = await fetch(`/api/login?username=${u.value}&password=${p.value}`);
+  let data = await res.json();
 
   if(data.status==="SUCCESS"){
     localStorage.setItem("auth","1");
     location.href="/index.html";
-  } else alert("Invalid");
+  } else alert("Invalid login");
 }
 </script>
 
